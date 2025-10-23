@@ -2,6 +2,7 @@ package tw.fengqing.spring.springbucks.waiter.integration;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.Message;
@@ -17,26 +18,27 @@ import java.util.function.Consumer;
 @Component
 @Slf4j
 public class OrderListener {
-
     @Autowired
     private StreamBridge streamBridge;
 
-    /**
-     * 處理完成訂單的函數式 Bean
-     * 接收完成訂單 ID 並通知客戶
-     * @return 完成訂單處理函數
+    @Value("${stream.bindings.notify-orders-binding}")
+    private String notifyOrdersBindingFromConfig;
+
+ /**
+     * 處理訂單完成消息的函數式 Bean
+     * 接收訂單 ID，通知客戶
+     * @return 訂單完成處理函數
      */
     @Bean
     public Consumer<Long> finishedOrders() {
         return id -> {
             log.info("We've finished an order [{}].", id);
-            
-            // 發送通知給客戶
             Message<Long> message = MessageBuilder.withPayload(id)
-                    .setHeader("customer", "Li Lei")
+                    .setHeader("customer", "Ray Chu")
                     .build();
-            log.info("Notify the customer: Li Lei");
-            streamBridge.send("notifyOrders-out-0", message);
+            log.info("Notify the customer: Ray Chu");
+            // 使用StreamBridge發送完成訂單消息
+            streamBridge.send(notifyOrdersBindingFromConfig, message);
         };
     }
 }

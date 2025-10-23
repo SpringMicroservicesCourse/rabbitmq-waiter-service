@@ -13,8 +13,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.joda.money.Money;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.function.StreamBridge;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityNotFoundException;
 
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -28,6 +30,9 @@ import java.util.stream.Stream;
 @Transactional
 @Slf4j
 public class CoffeeOrderService implements MeterBinder {
+    @Value("${stream.bindings.new-orders-binding}")
+    private String newOrdersBindingFromConfig;
+
     @Autowired
     private CoffeeOrderRepository orderRepository;
     @Autowired
@@ -39,8 +44,10 @@ public class CoffeeOrderService implements MeterBinder {
 
     private Counter orderCounter = null;
 
-    public CoffeeOrder get(Long id) {
-        return orderRepository.getOne(id);
+  public CoffeeOrder get(Long id) {
+        // 查詢不存在ID或該筆訂單未完成交易時，會拋出 EntityNotFoundException 異常
+        return orderRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found, ID: " + id));
     }
 
     public CoffeeOrder findById(Long id) {
@@ -77,7 +84,7 @@ public class CoffeeOrderService implements MeterBinder {
         if (state == OrderState.PAID) {
             // 有返回值，如果要關注發送結果，則判斷返回值
             // 一般消息體不會這麼簡單
-            streamBridge.send(Barista.NEW_ORDERS, order.getId());
+            streamBridge.send(newOrdersBindingFromConfig, order.getId());
         }
         return true;
     }
